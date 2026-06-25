@@ -1,0 +1,6 @@
+{
+  "name": "GullyScore",
+  "description": "A premium mobile-first cricket scoring app for casual gully matches and tournaments with live stream spectating.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
