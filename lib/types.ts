@@ -22,6 +22,7 @@ export interface Team {
   id: string;
   name: string;
   players: string[]; // List of player names
+  playerImages?: { [playerName: string]: string }; // Optional map of player name to profile image URL
 }
 
 export interface BallRecord {

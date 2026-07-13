@@ -14,11 +14,20 @@ import {
   TrendingUp,
   User,
   Plus,
-  Trophy
+  Trophy,
+  Tv,
+  Smartphone,
+  Gamepad,
+  Crown,
+  Cpu,
+  ExternalLink
 } from "lucide-react";
 import { Match, Team, MatchInning, ExtraType, WicketType } from "@/lib/types";
 import { createInning, handleBallScored, checkMatchStatus, pickTopPerformer, rotateStrike } from "@/lib/scoring-engine";
 import RunRateChart from "./run-rate-chart";
+import LiveBroadcastPlayer from "./live-broadcast-player";
+
+let liveEventIdCounter = 0;
 
 interface ScoringTabProps {
   teams: Team[];
@@ -72,6 +81,12 @@ export default function ScoringTab({
 
   // Auto Live Streaming state
   const [autoLiveStream, setAutoLiveStream] = useState(true);
+
+  // Scoreboard layout graphic style
+  const [scoreboardDesign, setScoreboardDesign] = useState<"default" | "broadcaster" | "neon" | "minimalist" | "retro" | "royal">("default");
+
+  // Live Video Play simulated ball event
+  const [activeLiveBallEvent, setActiveLiveBallEvent] = useState<any>(null);
 
   // Active scorecard tab
   const [activeScorecardTab, setActiveScorecardTab] = useState<0 | 1>(0);
@@ -208,6 +223,26 @@ export default function ScoringTab({
       updatedMatch.currentBowler = "";
       updatedMatch.status = "Chasing"; // Instantly proceed to chasing
     }
+
+    // Track for live simulated playback stream
+    liveEventIdCounter++;
+    const liveEvent = {
+      id: `live_${liveEventIdCounter}`,
+      runsBat,
+      extraType,
+      extraRuns,
+      wicket,
+      strikerName: activeMatch.currentStriker || "Striker",
+      bowlerName: activeMatch.currentBowler || "Bowler",
+      battingTeamName: battingTeam?.name || "Batting",
+      bowlingTeamName: bowlingTeam?.name || "Bowling",
+      runs: updatedMatch.innings[activeMatch.currentInningIndex].runs,
+      wickets: updatedMatch.innings[activeMatch.currentInningIndex].wickets,
+      overs: updatedMatch.innings[activeMatch.currentInningIndex].overs,
+      ballsInCurrentOver: updatedMatch.innings[activeMatch.currentInningIndex].ballsInCurrentOver,
+      oversAllowed: updatedMatch.oversAllowed
+    };
+    setActiveLiveBallEvent(liveEvent);
 
     onSaveActiveMatch(updatedMatch);
     pushLiveStreamUpdate(updatedMatch);
@@ -549,95 +584,689 @@ Generated via GullyScore™
   const needsSelectBatsmen = activeInning && (!activeMatch.currentStriker || !activeMatch.currentNonStriker);
   const needsSelectBowler = activeInning && !activeMatch.currentBowler && activeInning.overs < activeMatch.oversAllowed;
 
+  // Pre-calculate stats for all scoreboard themes
+  const totalBallsPlayed = activeInning ? activeInning.overs * 6 + activeInning.ballsInCurrentOver : 0;
+  const computedCRR = activeInning && totalBallsPlayed > 0 ? ((activeInning.runs / totalBallsPlayed) * 6).toFixed(2) : "0.00";
+  
+  const computedRemainingBalls = activeInning && activeMatch ? (activeMatch.oversAllowed * 6) - totalBallsPlayed : 0;
+  const firstInningsRuns = activeMatch?.innings?.[0]?.runs ?? 0;
+  const computedRunsNeeded = activeInning && activeMatch ? (firstInningsRuns + 1) - activeInning.runs : 0;
+  const computedRRR = activeInning && activeMatch && computedRemainingBalls > 0 ? Math.max(0, (computedRunsNeeded / computedRemainingBalls) * 6).toFixed(2) : "0.00";
+
   return (
-    <div id="scorer-main-panel" className="max-w-2xl mx-auto space-y-6">
+    <div id="scorer-main-panel" className="max-w-5xl mx-auto space-y-6 relative">
       {/* 4. MAIN LIVE SCOREPAD CONSOLE */}
       {activeInning && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left panel: Active Score information & Action Pad */}
-          <div className="md:col-span-2 space-y-4">
-            {/* Cricbuzz scorecard visual card */}
-            <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 border border-neutral-800 text-white rounded-2xl p-5 shadow-lg space-y-4 relative overflow-hidden">
-              <div className="absolute right-2 top-2">
-                <span className="inline-flex h-2 w-2 relative">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${autoLiveStream ? "bg-red-400" : "bg-zinc-400"}`}></span>
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${autoLiveStream ? "bg-red-500" : "bg-zinc-500"}`}></span>
+          <div className="lg:col-span-2 space-y-4">
+            {/* Scoreboard Style/Design Selector */}
+            <div className="bg-white dark:bg-neutral-900 border border-slate-100 dark:border-neutral-800/60 rounded-2xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 block font-mono">
+                  Select Scoreboard Graphic Style
                 </span>
-                <span className="text-[9px] uppercase font-bold tracking-wider font-mono opacity-80 text-right ml-1">
-                  {autoLiveStream ? "Streaming Live" : "Offline"}
+                <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 rounded-lg border border-emerald-100 dark:border-emerald-900/30">
+                  Live Preview
                 </span>
               </div>
-
-              <div className="text-xs opacity-75 inline-block uppercase tracking-wider font-mono font-bold bg-neutral-800 px-2 py-0.5 rounded text-emerald-400">
-                {activeMatch.status === "Chasing" ? "Second Innings (Chasing)" : "First Innings"}
-              </div>
-
-              <div className="flex justify-between items-center mt-2">
-                <div>
-                  <h3 className="text-lg font-bold tracking-tight">{battingTeam?.name}</h3>
-                  <p className="text-[10px] text-slate-400">vs {bowlingTeam?.name}</p>
-                </div>
-                <div className="text-right">
-                  <h2 className="text-4xl font-extrabold text-emerald-400 font-sans tracking-tight">
-                    {activeInning.runs}/{activeInning.wickets}
-                  </h2>
-                  <p className="text-xs opacity-80 font-mono mt-1">
-                    Overs: {activeInning.overs}.{activeInning.ballsInCurrentOver} / {activeMatch.oversAllowed}
-                  </p>
-                </div>
-              </div>
-
-              {/* Inning details, Runrate & Partner partnership runs */}
-              <div className="flex gap-4 border-t border-neutral-800/80 pt-3 flex-wrap text-xs font-medium text-slate-300">
-                <div>
-                  CRR: <span className="text-white font-bold">
-                    {activeInning.overs * 6 + activeInning.ballsInCurrentOver > 0
-                      ? ((activeInning.runs / (activeInning.overs * 6 + activeInning.ballsInCurrentOver)) * 6).toFixed(2)
-                      : "0.00"}
-                  </span>
-                </div>
-                <div>
-                  Extras: <span className="text-white font-bold">{activeInning.extras.total}</span>{" "}
-                  <span className="text-[10px] text-slate-400">
-                    (Wd:{activeInning.extras.wides} Nb:{activeInning.extras.noBalls} B:{activeInning.extras.byes} Lb:{activeInning.extras.legByes})
-                  </span>
-                </div>
-              </div>
-
-              {/* Chasing targets */}
-              {activeMatch.status === "Chasing" && (
-                <div className="p-3 bg-neutral-800/40 rounded-xl text-xs space-y-1 border border-neutral-800 text-center text-emerald-300">
-                  <p className="font-semibold text-white">Target: {activeMatch.innings[0].runs + 1} runs</p>
-                  <p>
-                    Need <span className="font-bold text-emerald-400">{activeMatch.innings[0].runs + 1 - activeInning.runs}</span> runs from{" "}
-                    <span className="font-bold text-emerald-400">{activeMatch.oversAllowed * 6 - (activeInning.overs * 6 + activeInning.ballsInCurrentOver)}</span> balls.
-                  </p>
-                </div>
-              )}
-
-              {/* Over visual capsules timeline */}
-              <div className="flex items-center gap-1.5 flex-wrap border-t border-neutral-800/50 pt-3">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Over Timeline:</span>
-                {activeInning.currentOverBalls.length === 0 ? (
-                  <span className="text-[10px] italic text-neutral-500">First delivery...</span>
-                ) : (
-                  activeInning.currentOverBalls.map((label, idx) => (
-                    <span
-                      key={idx}
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
-                        label.includes("W")
-                          ? "bg-red-600 text-white shadow-md shadow-red-950/40"
-                          : label === "4" || label === "6"
-                          ? "bg-emerald-600 text-white animate-bounce"
-                          : "bg-neutral-800 text-neutral-300"
-                      }`}
-                    >
-                      {label}
-                    </span>
-                  ))
-                )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { id: "default", label: "Cricbuzz Glow", icon: "✨" },
+                  { id: "broadcaster", label: "TV Broadcaster", icon: "📺" },
+                  { id: "neon", label: "Cyberpunk Neon", icon: "👾" },
+                  { id: "minimalist", label: "OLED Minimal", icon: "📱" },
+                  { id: "retro", label: "8-Bit Arcade", icon: "🕹️" },
+                  { id: "royal", label: "Royal Gold", icon: "👑" },
+                ].map((design) => (
+                  <button
+                    key={design.id}
+                    type="button"
+                    onClick={() => setScoreboardDesign(design.id as any)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                      scoreboardDesign === design.id
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/25 border-transparent"
+                        : "bg-slate-50 hover:bg-slate-100 dark:bg-neutral-800/80 dark:hover:bg-neutral-800 text-slate-600 dark:text-neutral-300 border border-slate-100 dark:border-neutral-800"
+                    }`}
+                  >
+                    <span className="text-sm">{design.icon}</span>
+                    <span className="truncate">{design.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
+
+            {/* Render selected Scoreboard design */}
+            {scoreboardDesign === "default" && (
+              <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 border border-neutral-800 text-white rounded-2xl p-5 shadow-lg space-y-4 relative overflow-hidden">
+                <div className="absolute right-2 top-2">
+                  <span className="inline-flex h-2 w-2 relative">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${autoLiveStream ? "bg-red-400" : "bg-zinc-400"}`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${autoLiveStream ? "bg-red-500" : "bg-zinc-500"}`}></span>
+                  </span>
+                  <span className="text-[9px] uppercase font-bold tracking-wider font-mono opacity-80 text-right ml-1">
+                    {autoLiveStream ? "Streaming Live" : "Offline"}
+                  </span>
+                </div>
+
+                <div className="text-xs opacity-75 inline-block uppercase tracking-wider font-mono font-bold bg-neutral-800 px-2 py-0.5 rounded text-emerald-400">
+                  {activeMatch.status === "Chasing" ? "Second Innings (Chasing)" : "First Innings"}
+                </div>
+
+                <div className="flex justify-between items-center mt-2">
+                  <div>
+                    <h3 className="text-lg font-bold tracking-tight">{battingTeam?.name}</h3>
+                    <p className="text-[10px] text-slate-400">vs {bowlingTeam?.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <h2 className="text-4xl font-extrabold text-emerald-400 font-sans tracking-tight">
+                      {activeInning.runs}/{activeInning.wickets}
+                    </h2>
+                    <p className="text-xs opacity-80 font-mono mt-1">
+                      Overs: {activeInning.overs}.{activeInning.ballsInCurrentOver} / {activeMatch.oversAllowed}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Inning details, Runrate & Partner partnership runs */}
+                <div className="flex gap-4 border-t border-neutral-800/80 pt-3 flex-wrap text-xs font-medium text-slate-300 items-center">
+                  <div>
+                    CRR: <span className="text-white font-bold">{computedCRR}</span>
+                  </div>
+                  {activeMatch.status === "Chasing" && (
+                    <div>
+                      RRR: <span className="text-emerald-400 font-extrabold">{computedRRR}</span>
+                    </div>
+                  )}
+                  <div>
+                    Extras: <span className="text-white font-bold">{activeInning.extras.total}</span>{" "}
+                    <span className="text-[10px] text-slate-400">
+                      (Wd:{activeInning.extras.wides} Nb:{activeInning.extras.noBalls} B:{activeInning.extras.byes} Lb:{activeInning.extras.legByes})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Chasing targets */}
+                {activeMatch.status === "Chasing" && (
+                  <div className="p-3 bg-neutral-800/40 rounded-xl text-xs space-y-1.5 border border-neutral-800 text-center text-emerald-300 relative">
+                    <p className="font-semibold text-white">Target: {firstInningsRuns + 1} runs</p>
+                    <p>
+                      Need <span className="font-bold text-emerald-400">{computedRunsNeeded}</span> runs from{" "}
+                      <span className="font-bold text-emerald-400">{computedRemainingBalls}</span> balls.
+                    </p>
+                    <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-emerald-500 h-full transition-all duration-350"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (activeInning.runs / (firstInningsRuns + 1)) * 100))}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Over visual capsules timeline */}
+                <div className="flex items-center gap-1.5 flex-wrap border-t border-neutral-800/50 pt-3">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Over Timeline:</span>
+                  {activeInning.currentOverBalls.length === 0 ? (
+                    <span className="text-[10px] italic text-neutral-500">First delivery...</span>
+                  ) : (
+                    activeInning.currentOverBalls.map((label, idx) => (
+                      <span
+                        key={idx}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold ${
+                          label.includes("W")
+                            ? "bg-red-600 text-white shadow-md shadow-red-950/40"
+                            : label === "4" || label === "6"
+                            ? "bg-emerald-600 text-white animate-bounce"
+                            : "bg-neutral-800 text-neutral-300"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Design 2: TV Broadcaster style */}
+            {scoreboardDesign === "broadcaster" && (
+              <div className="bg-slate-900 border-b-4 border-emerald-500 text-white rounded-2xl p-5 shadow-xl space-y-4 relative overflow-hidden font-sans">
+                {/* Simulated Glass Highlight Reflection */}
+                <div className="absolute top-0 left-0 right-0 h-[50%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
+                
+                <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-red-600 text-white text-[9px] px-2 py-0.5 rounded font-extrabold uppercase animate-pulse flex items-center gap-1 shadow-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                      <span>LIVE BROADCAST</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+                      ISB MATCH CENTER
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-widest bg-yellow-950/30 px-2 py-0.5 rounded border border-yellow-900/30">
+                    {activeMatch.status === "Chasing" ? "2nd Inning" : "1st Inning"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-center">
+                  <div className="sm:col-span-2 space-y-1">
+                    <span className="text-xs uppercase text-slate-400 font-bold tracking-wider">BATTING TEAM</span>
+                    <h3 className="text-2xl font-black text-slate-100 tracking-tight leading-tight uppercase">
+                      {battingTeam?.name}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium font-mono">Opponent: {bowlingTeam?.name}</p>
+                  </div>
+
+                  <div className="sm:col-span-3 bg-slate-950/80 border border-slate-800 p-3 rounded-xl flex justify-between items-center shadow-inner">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Score / Wickets</span>
+                      <h2 className="text-3xl font-extrabold text-emerald-400 tracking-tight font-mono">
+                        {activeInning.runs} <span className="text-slate-400 text-xl">/</span> {activeInning.wickets}
+                      </h2>
+                    </div>
+                    <div className="text-right border-l border-slate-800 pl-4">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Overs Bowled</span>
+                      <p className="text-xl font-bold font-mono text-slate-100">
+                        {activeInning.overs}.{activeInning.ballsInCurrentOver} <span className="text-slate-500 text-xs">/ {activeMatch.oversAllowed}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* TV Graphic Ticker Crawl */}
+                <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 text-xs font-mono">
+                  <div className="text-center">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">CRR</span>
+                    <span className="font-extrabold text-slate-200">{computedCRR}</span>
+                  </div>
+                  <div className="text-center border-x border-slate-800">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">EXTRAS</span>
+                    <span className="font-extrabold text-yellow-400">
+                      {activeInning.extras.total} <span className="text-[9px] text-slate-500 font-normal">(Wd:{activeInning.extras.wides} Nb:{activeInning.extras.noBalls})</span>
+                    </span>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">
+                      {activeMatch.status === "Chasing" ? "REQ RR" : "PROJECTED"}
+                    </span>
+                    <span className="font-extrabold text-emerald-400">
+                      {activeMatch.status === "Chasing" ? computedRRR : (parseFloat(computedCRR) * activeMatch.oversAllowed).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Target progress ticker if chasing */}
+                {activeMatch.status === "Chasing" && (
+                  <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 text-center space-y-1.5 relative overflow-hidden">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-300">Target: {firstInningsRuns + 1} Runs</span>
+                      <span className="text-emerald-400 font-bold">Need {computedRunsNeeded} runs from {computedRemainingBalls} balls</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-md overflow-hidden p-[1px]">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (activeInning.runs / (firstInningsRuns + 1)) * 100))}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Over balls */}
+                <div className="flex items-center gap-1.5 border-t border-slate-800 pt-3 flex-wrap">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">CURRENT OVER:</span>
+                  {activeInning.currentOverBalls.length === 0 ? (
+                    <span className="text-[10px] italic text-slate-500">Awaiting first delivery...</span>
+                  ) : (
+                    activeInning.currentOverBalls.map((label, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-2 py-0.5 rounded font-mono text-[10px] font-extrabold border ${
+                          label.includes("W")
+                            ? "bg-red-950 text-red-400 border-red-800 shadow-sm"
+                            : label === "4" || label === "6"
+                            ? "bg-yellow-950 text-yellow-400 border-yellow-700 font-black animate-pulse"
+                            : "bg-slate-850 text-slate-300 border-slate-700"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Design 3: Cyberpunk Neon */}
+            {scoreboardDesign === "neon" && (
+              <div className="bg-[#080315] border-2 border-fuchsia-500 text-cyan-400 rounded-2xl p-5 shadow-[0_0_20px_rgba(217,70,239,0.25)] space-y-4 relative overflow-hidden font-mono">
+                {/* Tech scanline visual decoration */}
+                <div className="absolute inset-0 bg-scanlines pointer-events-none opacity-[0.03]"></div>
+                
+                {/* Corner crosshairs */}
+                <div className="absolute top-2 left-2 text-[9px] text-fuchsia-500 opacity-60 font-mono">┌ CYBER_CRIC ┐</div>
+                <div className="absolute bottom-2 right-2 text-[9px] text-fuchsia-500 opacity-60 font-mono">└ RUN_MATRIX ┘</div>
+
+                <div className="flex justify-between items-center pt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span className="text-[10px] tracking-widest font-bold uppercase text-cyan-400">
+                      [ NODE_ACTIVE_STREAM ]
+                    </span>
+                  </div>
+                  <span className="text-[10px] tracking-widest text-fuchsia-400 font-bold uppercase">
+                    {activeMatch.status === "Chasing" ? "SYS_CHASE_ENGAGED" : "SYS_FIRST_INNING"}
+                  </span>
+                </div>
+
+                <div className="border border-cyan-900/50 bg-[#0d0722] p-4 rounded-xl space-y-3 relative">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-[9px] text-slate-500 block uppercase font-semibold">[VIRTUAL_BATTER_COGNITIVE]</span>
+                      <h3 className="text-xl font-bold tracking-tight text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">
+                        {battingTeam?.name}
+                      </h3>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] text-slate-500 block uppercase font-semibold">[TARGET_CORE]</span>
+                      <h4 className="text-xs font-bold text-fuchsia-400">
+                        OPP_DEFENCE: {bowlingTeam?.name}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 border-t border-cyan-950 pt-3">
+                    <div>
+                      <span className="text-[9px] text-cyan-500 uppercase font-bold tracking-wider">TOTAL_SCORE</span>
+                      <div className="text-4xl font-extrabold text-fuchsia-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]">
+                        {activeInning.runs}
+                        <span className="text-cyan-400 text-2xl font-light"> / </span>
+                        {activeInning.wickets}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] text-cyan-500 uppercase font-bold tracking-wider">CYCLE_OVERS</span>
+                      <div className="text-3xl font-bold text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.4)]">
+                        {activeInning.overs}.{activeInning.ballsInCurrentOver}
+                        <span className="text-slate-500 text-sm"> / {activeMatch.oversAllowed}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid matrix indicators */}
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="bg-[#0b051c] border border-cyan-950 p-2 rounded-lg">
+                    <span className="text-[8px] text-slate-500 block">CRR_FLOW</span>
+                    <span className="text-cyan-400 font-extrabold">{computedCRR}</span>
+                  </div>
+                  <div className="bg-[#0b051c] border border-cyan-950 p-2 rounded-lg">
+                    <span className="text-[8px] text-slate-500 block">SYS_EXTRAS</span>
+                    <span className="text-fuchsia-400 font-bold">{activeInning.extras.total}</span>
+                  </div>
+                  <div className="bg-[#0b051c] border border-cyan-950 p-2 rounded-lg">
+                    <span className="text-[8px] text-slate-500 block">
+                      {activeMatch.status === "Chasing" ? "REQ_VELOCITY" : "EST_CAPACITY"}
+                    </span>
+                    <span className="text-emerald-400 font-extrabold">
+                      {activeMatch.status === "Chasing" ? computedRRR : (parseFloat(computedCRR) * activeMatch.oversAllowed).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Cyberpunk Progress bar */}
+                {activeMatch.status === "Chasing" && (
+                  <div className="bg-[#0b051c] border border-fuchsia-950 rounded-xl p-3 text-center space-y-1">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">CHASE_TARGET: {firstInningsRuns + 1}</span>
+                      <span className="text-[#00ffcc] font-extrabold">REMAINING: {computedRunsNeeded} RUNS</span>
+                    </div>
+                    <div className="w-full bg-neutral-900 h-1 rounded border border-cyan-950 overflow-hidden">
+                      <div
+                        className="bg-fuchsia-500 h-full shadow-[0_0_8px_#ff007f]"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (activeInning.runs / (firstInningsRuns + 1)) * 100))}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Over capsule nodes */}
+                <div className="flex items-center gap-1.5 border-t border-cyan-950 pt-3 flex-wrap">
+                  <span className="text-[9px] text-cyan-500 uppercase tracking-wider">TIMELINE_NODES:</span>
+                  {activeInning.currentOverBalls.length === 0 ? (
+                    <span className="text-[9px] italic text-slate-600">[AWAITING_SIGNAL_INPUT]</span>
+                  ) : (
+                    activeInning.currentOverBalls.map((label, idx) => (
+                      <span
+                        key={idx}
+                        className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold border ${
+                          label.includes("W")
+                            ? "bg-red-950 text-red-400 border-red-500 animate-pulse shadow-[0_0_5px_rgba(239,68,68,0.5)]"
+                            : label === "4" || label === "6"
+                            ? "bg-cyan-950 text-[#00ffcc] border-[#00ffcc] shadow-[0_0_5px_rgba(0,255,204,0.5)]"
+                            : "bg-[#0b051c] text-slate-400 border-cyan-950"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Design 4: OLED Minimal */}
+            {scoreboardDesign === "minimalist" && (
+              <div className="bg-white dark:bg-black border border-slate-200 dark:border-neutral-800 text-slate-900 dark:text-neutral-100 rounded-2xl p-6 shadow-xs space-y-5 relative overflow-hidden font-sans">
+                <div className="flex justify-between items-center text-xs tracking-tight text-slate-400 border-b border-slate-100 dark:border-neutral-900 pb-2">
+                  <span className="font-semibold uppercase tracking-wider text-[10px]">
+                    {activeMatch.status === "Chasing" ? "Run Chase Active" : "First Innings Current State"}
+                  </span>
+                  <div className="flex items-center gap-1.5 font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span className="uppercase text-[9px]">Live Scorer</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-400 uppercase font-medium tracking-widest font-mono">NOW BATTING</span>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-baseline gap-2">
+                    <h3 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                      {battingTeam?.name}
+                    </h3>
+                    <p className="text-sm text-slate-400">versus {bowlingTeam?.name}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center py-4 border-y border-slate-100 dark:border-neutral-900 gap-4">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">CURRENT SCORE</span>
+                    <div className="text-5xl font-light tracking-tighter text-slate-900 dark:text-white flex items-baseline">
+                      <span>{activeInning.runs}</span>
+                      <span className="text-slate-300 dark:text-neutral-700 mx-2 font-thin">/</span>
+                      <span className="text-slate-500 font-normal text-3xl">{activeInning.wickets}</span>
+                    </div>
+                  </div>
+
+                  <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-neutral-900 pt-3 sm:pt-0 sm:pl-6">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">COMPLETED OVERS</span>
+                    <p className="text-3xl font-semibold text-slate-800 dark:text-neutral-200 font-mono tracking-tight">
+                      {activeInning.overs}.{activeInning.ballsInCurrentOver}
+                      <span className="text-slate-400 dark:text-neutral-600 text-lg font-light"> / {activeMatch.oversAllowed}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+                  <div className="bg-slate-50 dark:bg-neutral-900 p-2.5 rounded-xl">
+                    <span className="text-[9px] text-slate-400 block uppercase">Current Run Rate</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{computedCRR}</span>
+                  </div>
+                  {activeMatch.status === "Chasing" && (
+                    <div className="bg-slate-50 dark:bg-neutral-900 p-2.5 rounded-xl">
+                      <span className="text-[9px] text-slate-400 block uppercase">Required Rate</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{computedRRR}</span>
+                    </div>
+                  )}
+                  <div className="bg-slate-50 dark:bg-neutral-900 p-2.5 rounded-xl">
+                    <span className="text-[9px] text-slate-400 block uppercase">Extras Offered</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{activeInning.extras.total}</span>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-neutral-900 p-2.5 rounded-xl">
+                    <span className="text-[9px] text-slate-400 block uppercase">Overs Remaining</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {(activeMatch.oversAllowed - activeInning.overs - (activeInning.ballsInCurrentOver > 0 ? 1 : 0))}
+                    </span>
+                  </div>
+                </div>
+
+                {activeMatch.status === "Chasing" && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Need {computedRunsNeeded} runs from {computedRemainingBalls} deliveries.</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Target: {firstInningsRuns + 1}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-neutral-900 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-black dark:bg-white h-full"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (activeInning.runs / (firstInningsRuns + 1)) * 100))}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 pt-2 flex-wrap border-t border-slate-100 dark:border-neutral-900">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Over Delivery Track:</span>
+                  {activeInning.currentOverBalls.length === 0 ? (
+                    <span className="text-[10px] italic text-slate-400">Empty over...</span>
+                  ) : (
+                    activeInning.currentOverBalls.map((label, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                          label.includes("W")
+                            ? "bg-black text-white dark:bg-white dark:text-black"
+                            : "bg-slate-100 text-slate-800 dark:bg-neutral-900 dark:text-slate-300"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Design 5: 8-Bit Arcade Scoreboard */}
+            {scoreboardDesign === "retro" && (
+              <div className="bg-neutral-950 border-4 border-dashed border-amber-500 text-amber-400 rounded-2xl p-5 shadow-[inset_0_0_15px_rgba(245,158,11,0.2)] space-y-4 relative overflow-hidden font-mono tracking-tight select-none">
+                {/* Vintage arcade grid effect overlay */}
+                <div className="absolute inset-0 bg-radial-vignette opacity-20 pointer-events-none"></div>
+
+                <div className="flex justify-between items-center border-b-2 border-amber-500/30 pb-2">
+                  <span className="text-[10px] uppercase animate-pulse">** STAGE 01 ACTIVE **</span>
+                  <div className="text-[10px] text-right">HI-SCORE: 999</div>
+                </div>
+
+                <div className="text-center space-y-1">
+                  <p className="text-[10px] text-yellow-500 font-bold uppercase">[ ACTIVE BATTER PLAYER 1 ]</p>
+                  <h3 className="text-xl font-extrabold uppercase text-white tracking-widest border-2 border-dashed border-amber-800 p-2 rounded-lg bg-neutral-900">
+                    {battingTeam?.name}
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 py-3 bg-black/60 rounded-xl border border-amber-500/25 p-3">
+                  <div>
+                    <span className="text-[9px] text-amber-500 uppercase block">== RUNS/WKTS ==</span>
+                    <div className="text-4xl font-bold font-mono tracking-wider text-amber-300">
+                      {activeInning.runs.toString().padStart(3, "0")}
+                      <span className="text-amber-500 text-2xl font-light">-</span>
+                      {activeInning.wickets}
+                    </div>
+                  </div>
+                  <div className="text-right border-l border-amber-900/40 pl-4">
+                    <span className="text-[9px] text-amber-500 uppercase block">== OVERS ==</span>
+                    <div className="text-3xl font-bold font-mono tracking-wider text-amber-300">
+                      {activeInning.overs}.{activeInning.ballsInCurrentOver}
+                      <span className="text-amber-500 text-xs font-light">/{activeMatch.oversAllowed}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center text-[11px] uppercase">
+                  <div className="bg-neutral-900 p-1.5 rounded border border-amber-900/40">
+                    <span className="text-[8px] text-yellow-600 block">CRR</span>
+                    <span className="font-bold">{computedCRR}</span>
+                  </div>
+                  <div className="bg-neutral-900 p-1.5 rounded border border-amber-900/40">
+                    <span className="text-[8px] text-yellow-600 block">EXT</span>
+                    <span className="font-bold">{activeInning.extras.total}</span>
+                  </div>
+                  <div className="bg-neutral-900 p-1.5 rounded border border-amber-900/40">
+                    <span className="text-[8px] text-yellow-600 block">
+                      {activeMatch.status === "Chasing" ? "REQ_RR" : "PROJ"}
+                    </span>
+                    <span className="font-bold text-yellow-300">
+                      {activeMatch.status === "Chasing" ? computedRRR : (parseFloat(computedCRR) * activeMatch.oversAllowed).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                {activeMatch.status === "Chasing" && (
+                  <div className="bg-black p-3 rounded border border-amber-900/30 text-center space-y-1">
+                    <p className="text-[10px] text-amber-400">
+                      NEED {computedRunsNeeded} RUNS FROM {computedRemainingBalls} BALLS
+                    </p>
+                    <div className="flex gap-1 justify-center items-center text-[8px] text-amber-600">
+                      <span>[</span>
+                      {Array.from({ length: 10 }).map((_, idx) => {
+                        const progress = (activeInning.runs / (firstInningsRuns + 1)) * 10;
+                        return (
+                          <span
+                            key={idx}
+                            className={`w-2.5 h-1.5 inline-block ${
+                              idx < progress ? "bg-amber-400" : "bg-neutral-900 border border-amber-950"
+                            }`}
+                          ></span>
+                        );
+                      })}
+                      <span>]</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1 flex-wrap border-t border-amber-900/40 pt-3 text-[10px]">
+                  <span className="text-[8px] text-yellow-600 uppercase">BALLS RECORD:</span>
+                  {activeInning.currentOverBalls.length === 0 ? (
+                    <span className="text-[8px] text-neutral-600">[ PRESS BUTTON TO LOG ]</span>
+                  ) : (
+                    activeInning.currentOverBalls.map((label, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-1.5 py-0.5 rounded font-bold border ${
+                          label.includes("W")
+                            ? "bg-red-900 text-red-100 border-red-500 animate-pulse"
+                            : "bg-neutral-900 text-amber-400 border-amber-800"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Design 6: Royal Gold */}
+            {scoreboardDesign === "royal" && (
+              <div className="bg-gradient-to-br from-[#11241a] via-[#09140f] to-[#132c20] border-2 border-amber-400 text-amber-100 rounded-2xl p-5 shadow-2xl space-y-4 relative overflow-hidden font-serif">
+                {/* Elegant Gilded flourishes visual layout */}
+                <div className="absolute -right-12 -top-12 w-24 h-24 rounded-full border-4 border-amber-400/20 pointer-events-none"></div>
+                <div className="absolute -left-12 -bottom-12 w-24 h-24 rounded-full border-4 border-amber-400/20 pointer-events-none"></div>
+
+                <div className="flex justify-between items-center border-b border-amber-400/30 pb-2.5 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Crown className="w-4 h-4 text-amber-400 animate-bounce" />
+                    <span className="uppercase font-bold tracking-widest text-[9px] text-amber-400 font-sans">
+                      CHAMPIONSHIP TIER MATCH
+                    </span>
+                  </div>
+                  <span className="font-sans uppercase font-bold text-[9px] border border-amber-400/40 px-2 py-0.5 rounded text-amber-400 bg-amber-950/20">
+                    {activeMatch.status === "Chasing" ? "Championship Target Chase" : "Championship Setup"}
+                  </span>
+                </div>
+
+                <div className="text-center space-y-1 py-1">
+                  <p className="text-[10px] text-amber-400/70 uppercase tracking-widest font-sans font-bold">CURRENT TEAM BATTING</p>
+                  <h3 className="text-2xl font-bold tracking-wide text-amber-200">
+                    {battingTeam?.name}
+                  </h3>
+                  <div className="w-16 h-[1px] bg-amber-400/50 mx-auto"></div>
+                  <p className="text-[10px] italic text-amber-100/60 font-sans">Competing against {bowlingTeam?.name}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 py-4 border-y border-amber-400/30 text-center">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-amber-400/60 uppercase tracking-wider font-sans font-bold block">TOTAL RECORD</span>
+                    <div className="text-4xl font-extrabold text-amber-300 tracking-tight font-sans">
+                      {activeInning.runs} <span className="text-amber-500 font-light text-2xl">for</span> {activeInning.wickets}
+                    </div>
+                  </div>
+                  <div className="space-y-1 border-l border-amber-400/20">
+                    <span className="text-[10px] text-amber-400/60 uppercase tracking-wider font-sans font-bold block">OVERS COMPLETED</span>
+                    <div className="text-4xl font-extrabold text-amber-300 tracking-tight font-sans font-mono">
+                      {activeInning.overs}.{activeInning.ballsInCurrentOver}
+                      <span className="text-amber-500/50 text-base font-normal"> / {activeMatch.oversAllowed}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center text-xs font-sans">
+                  <div className="bg-[#09130e] border border-amber-400/25 p-2 rounded-lg">
+                    <span className="text-[8px] text-amber-400/60 block uppercase font-bold">RUN RATE</span>
+                    <span className="font-bold text-amber-200">{computedCRR}</span>
+                  </div>
+                  <div className="bg-[#09130e] border border-amber-400/25 p-2 rounded-lg">
+                    <span className="text-[8px] text-amber-400/60 block uppercase font-bold">EXTRAS</span>
+                    <span className="font-bold text-amber-200">{activeInning.extras.total}</span>
+                  </div>
+                  <div className="bg-[#09130e] border border-amber-400/25 p-2 rounded-lg">
+                    <span className="text-[8px] text-amber-400/60 block uppercase font-bold">
+                      {activeMatch.status === "Chasing" ? "REQUIRED" : "EST. SCORE"}
+                    </span>
+                    <span className="font-bold text-amber-300">
+                      {activeMatch.status === "Chasing" ? computedRRR : (parseFloat(computedCRR) * activeMatch.oversAllowed).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                {activeMatch.status === "Chasing" && (
+                  <div className="bg-[#09130e] border border-amber-400/20 rounded-xl p-3 text-center space-y-1 font-sans">
+                    <p className="text-xs text-amber-100/80">
+                      Need <span className="text-amber-300 font-bold">{computedRunsNeeded}</span> runs from <span className="text-amber-300 font-bold">{computedRemainingBalls}</span> balls.
+                    </p>
+                    <div className="w-full bg-neutral-900 h-1 rounded-full overflow-hidden border border-amber-400/10">
+                      <div
+                        className="bg-amber-400 h-full"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (activeInning.runs / (firstInningsRuns + 1)) * 100))}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 pt-2 flex-wrap border-t border-amber-400/20 text-xs font-sans">
+                  <span className="text-[9px] text-amber-400/60 uppercase font-bold">Current Deliveries:</span>
+                  {activeInning.currentOverBalls.length === 0 ? (
+                    <span className="text-[10px] italic text-amber-100/40">First Delivery...</span>
+                  ) : (
+                    activeInning.currentOverBalls.map((label, idx) => (
+                      <span
+                        key={idx}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${
+                          label.includes("W")
+                            ? "bg-red-950 text-red-200 border-red-500 shadow-md"
+                            : label === "4" || label === "6"
+                            ? "bg-amber-400 text-emerald-950 border-amber-300 font-black"
+                            : "bg-[#09130e] text-amber-100 border-amber-400/20"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* If setup requires selecting active cricketers */}
             {needsSelectBatsmen && (
@@ -814,6 +1443,33 @@ Generated via GullyScore™
 
           {/* Right panel: Active Batsmen/Bowlers list & control actions */}
           <div className="space-y-4">
+            {/* Live Video Broadcast Streamer */}
+            <LiveBroadcastPlayer
+              activeBallEvent={activeLiveBallEvent}
+              autoPlay={true}
+            />
+
+            {/* Launch Popout Live Window Button */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-4 shadow-sm flex items-center justify-between text-white border border-emerald-500/10">
+              <div className="space-y-0.5">
+                <h5 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                  <Tv className="w-4 h-4 fill-white animate-pulse" />
+                  <span>Live TV Stream</span>
+                </h5>
+                <p className="text-[10px] text-emerald-100/90 font-medium leading-normal max-w-[180px] sm:max-w-none">Broadcast match & scoreboards on secondary screens/TVs!</p>
+              </div>
+              <button
+                id="launch-live-popout-btn"
+                onClick={() => {
+                  window.open(`/live?matchId=${activeMatch.id}`, `GullyLive-${activeMatch.id}`, 'width=1200,height=800,scrollbars=yes,resizable=yes');
+                }}
+                className="px-3.5 py-2 bg-white text-emerald-700 hover:bg-slate-50 font-black text-xs rounded-xl transition shadow-md flex items-center gap-1.5 shrink-0 active:scale-95"
+              >
+                <span>Launch TV</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             {/* Scorer quick action row */}
             <div className="bg-white dark:bg-neutral-900 border border-slate-100 dark:border-neutral-800 rounded-2xl p-4 shadow-sm space-y-3">
               <h4 className="text-xs font-bold uppercase text-slate-400">System Ops</h4>
@@ -881,8 +1537,16 @@ Generated via GullyScore™
                 </div>
                 {/* Striker details */}
                 <div className="flex justify-between items-center text-xs">
-                  <div className="truncate pr-2 font-semibold flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-emerald-500" />
+                  <div className="truncate pr-2 font-semibold flex items-center gap-2">
+                    <div className="relative w-5 h-5 rounded-full overflow-hidden bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={battingTeam?.playerImages?.[activeMatch.currentStriker] || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(activeMatch.currentStriker)}`}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
                     <span>{activeMatch.currentStriker || "Striker"}*</span>
                   </div>
                   <span className="font-mono font-bold">
@@ -894,8 +1558,16 @@ Generated via GullyScore™
                 </div>
                 {/* NonStriker details */}
                 <div className="flex justify-between items-center text-xs">
-                  <div className="truncate pr-2 font-medium flex items-center gap-1.5 text-slate-500 dark:text-neutral-400">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
+                  <div className="truncate pr-2 font-medium flex items-center gap-2 text-slate-500 dark:text-neutral-400">
+                    <div className="relative w-5 h-5 rounded-full overflow-hidden bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 flex items-center justify-center flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={battingTeam?.playerImages?.[activeMatch.currentNonStriker] || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(activeMatch.currentNonStriker)}`}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
                     <span>{activeMatch.currentNonStriker || "Non-Striker"}</span>
                   </div>
                   <span className="font-mono text-slate-500 dark:text-neutral-400">
@@ -914,7 +1586,18 @@ Generated via GullyScore™
                   <span>O-M-R-W</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-semibold">
-                  <span className="truncate max-w-[130px]">{activeMatch.currentBowler || "Bowler name"}</span>
+                  <div className="truncate pr-2 flex items-center gap-2">
+                    <div className="relative w-5 h-5 rounded-full overflow-hidden bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-center justify-center flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={bowlingTeam?.playerImages?.[activeMatch.currentBowler] || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(activeMatch.currentBowler)}`}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <span className="truncate max-w-[130px]">{activeMatch.currentBowler || "Bowler name"}</span>
+                  </div>
                   <span className="font-mono">
                     {activeInning.bowlers[activeMatch.currentBowler]
                       ? `${Math.floor(activeInning.bowlers[activeMatch.currentBowler].balls / 6)}.${

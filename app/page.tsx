@@ -38,6 +38,7 @@ export default function GullyScoreApp() {
 
   // History search/filter
   const [historySearch, setHistorySearch] = useState("");
+  const [historySortOrder, setHistorySortOrder] = useState<"newest" | "oldest">("newest");
   const [selectedHistoryMatch, setSelectedHistoryMatch] = useState<Match | null>(null);
   const [aiReportLoading, setAiReportLoading] = useState(false);
   const [aiReportText, setAiReportText] = useState("");
@@ -602,10 +603,17 @@ export default function GullyScoreApp() {
     }
   };
 
-  const filteredHistory = historyMatches.filter((m) =>
-    m.teamAName.toLowerCase().includes(historySearch.toLowerCase()) ||
-    m.teamBName.toLowerCase().includes(historySearch.toLowerCase())
-  );
+  const filteredHistory = useMemo(() => {
+    const filtered = historyMatches.filter((m) =>
+      m.teamAName.toLowerCase().includes(historySearch.toLowerCase()) ||
+      m.teamBName.toLowerCase().includes(historySearch.toLowerCase())
+    );
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.date).getTime() || 0;
+      const dateB = new Date(b.date).getTime() || 0;
+      return historySortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    });
+  }, [historyMatches, historySearch, historySortOrder]);
 
   return (
     <div className={`min-h-screen pb-24 transition-colors duration-200 ${isDarkMode ? "dark bg-neutral-950 text-neutral-100" : "bg-slate-50 text-neutral-900"}`}>
@@ -931,22 +939,50 @@ export default function GullyScoreApp() {
 
         {tab === "history" && (
           <div id="history-view" className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-neutral-900 p-4 rounded-2xl border border-slate-100 dark:border-neutral-800/60 shadow-xs">
               <div>
-                <h3 className="text-lg font-extrabold">Completed Matches History</h3>
+                <h3 className="text-lg font-extrabold text-slate-800 dark:text-neutral-100">Completed Matches History</h3>
                 <p className="text-xs text-slate-400">Browse previous games scorecards and AI analysis reports</p>
               </div>
 
-              {/* Search bar */}
-              <div className="relative w-full sm:w-auto">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search Teams (e.g. Blasters)"
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  className="w-full sm:w-60 pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none"
-                />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+                {/* Search bar */}
+                <div className="relative flex-1 sm:flex-initial">
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search Teams..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="w-full sm:w-48 pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none"
+                  />
+                </div>
+
+                {/* Sort Toggle segment */}
+                <div className="flex bg-slate-100 dark:bg-neutral-800 p-0.5 rounded-xl text-[11px] font-semibold flex-1 sm:flex-initial">
+                  <button
+                    type="button"
+                    onClick={() => setHistorySortOrder("newest")}
+                    className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg transition-all ${
+                      historySortOrder === "newest"
+                        ? "bg-white dark:bg-neutral-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-bold"
+                        : "text-slate-500 dark:text-neutral-400 hover:text-slate-800 dark:hover:text-neutral-200"
+                    }`}
+                  >
+                    Newest
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistorySortOrder("oldest")}
+                    className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg transition-all ${
+                      historySortOrder === "oldest"
+                        ? "bg-white dark:bg-neutral-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-bold"
+                        : "text-slate-500 dark:text-neutral-400 hover:text-slate-800 dark:hover:text-neutral-200"
+                    }`}
+                  >
+                    Oldest
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1334,18 +1370,18 @@ export default function GullyScoreApp() {
       </main>
 
       {/* Modern bottom mobile floating navbar */}
-      <nav className="fixed bottom-0 inset-x-0 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border-t border-slate-150 dark:border-neutral-850 py-2.5 px-4 shadow-2xl z-45 max-w-4xl mx-auto flex items-center justify-around rounded-t-2xl">
+      <nav className="fixed bottom-4 left-4 right-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-lg border border-slate-200/80 dark:border-neutral-800/80 py-3 px-2 shadow-xl z-50 max-w-lg mx-auto flex items-center justify-around rounded-2xl">
         <button
           onClick={() => {
             setSelectedHistoryMatch(null);
             setTab("dashboard");
           }}
-          className={`flex flex-col items-center gap-1 transition ${
-            tab === "dashboard" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-500"
+          className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-1 min-h-[44px] transition ${
+            tab === "dashboard" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-550"
           }`}
         >
-          <Trophy className="w-4 h-4" />
-          <span className="text-[9px]">Lobby</span>
+          <Trophy className="w-4.5 h-4.5" />
+          <span className="text-[10px] tracking-wide">Lobby</span>
         </button>
 
         <button
@@ -1353,12 +1389,12 @@ export default function GullyScoreApp() {
             setSelectedHistoryMatch(null);
             setTab("teams");
           }}
-          className={`flex flex-col items-center gap-1 transition ${
-            tab === "teams" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-500"
+          className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-1 min-h-[44px] transition ${
+            tab === "teams" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-550"
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span className="text-[9px]">Teams</span>
+          <Users className="w-4.5 h-4.5" />
+          <span className="text-[10px] tracking-wide">Teams</span>
         </button>
 
         <button
@@ -1366,12 +1402,12 @@ export default function GullyScoreApp() {
             setSelectedHistoryMatch(null);
             setTab("scoring");
           }}
-          className={`flex flex-col items-center gap-1 transition ${
-            tab === "scoring" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-500"
+          className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-1 min-h-[44px] transition ${
+            tab === "scoring" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-550"
           }`}
         >
-          <Play className="w-4 h-4" />
-          <span className="text-[9px]">Scoring</span>
+          <Play className="w-4.5 h-4.5" />
+          <span className="text-[10px] tracking-wide">Scoring</span>
         </button>
 
         <button
@@ -1379,12 +1415,12 @@ export default function GullyScoreApp() {
             setSelectedHistoryMatch(null);
             setTab("tournaments");
           }}
-          className={`flex flex-col items-center gap-1 transition ${
-            tab === "tournaments" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-500"
+          className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-1 min-h-[44px] transition ${
+            tab === "tournaments" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-550"
           }`}
         >
-          <Trophy className="w-4 h-4 fill-none" />
-          <span className="text-[9px]">Leagues</span>
+          <Trophy className="w-4.5 h-4.5 fill-none" />
+          <span className="text-[10px] tracking-wide">Leagues</span>
         </button>
 
         <button
@@ -1392,12 +1428,12 @@ export default function GullyScoreApp() {
             setSelectedHistoryMatch(null);
             setTab("history");
           }}
-          className={`flex flex-col items-center gap-1 transition ${
-            tab === "history" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-500"
+          className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-1 min-h-[44px] transition ${
+            tab === "history" ? "text-emerald-500 font-extrabold scale-105" : "text-slate-450 dark:text-neutral-550"
           }`}
         >
-          <History className="w-4 h-4" />
-          <span className="text-[9px]">History</span>
+          <History className="w-4.5 h-4.5" />
+          <span className="text-[10px] tracking-wide">History</span>
         </button>
       </nav>
     </div>

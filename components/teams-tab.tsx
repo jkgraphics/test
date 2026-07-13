@@ -14,6 +14,8 @@ export default function TeamsTab({ teams, onSaveTeams, isDarkMode }: TeamsTabPro
   const [newTeamName, setNewTeamName] = useState("");
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [newPlayerName, setNewPlayerName] = useState("");
+  const [editingPlayerName, setEditingPlayerName] = useState<string | null>(null);
+  const [customImageUrl, setCustomImageUrl] = useState("");
 
   const handleCreateTeam = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +31,7 @@ export default function TeamsTab({ teams, onSaveTeams, isDarkMode }: TeamsTabPro
       id: "team-" + Math.random().toString(36).substring(2, 9),
       name: newTeamName.trim(),
       players: [],
+      playerImages: {},
     };
 
     const updated = [...teams, newTeam];
@@ -60,9 +63,15 @@ export default function TeamsTab({ teams, onSaveTeams, isDarkMode }: TeamsTabPro
 
     const updatedTeams = teams.map((t) => {
       if (t.id === activeTeamId) {
+        const trimmedName = newPlayerName.trim();
+        const generatedAvatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(trimmedName)}`;
         return {
           ...t,
-          players: [...t.players, newPlayerName.trim()],
+          players: [...t.players, trimmedName],
+          playerImages: {
+            ...(t.playerImages || {}),
+            [trimmedName]: generatedAvatarUrl,
+          },
         };
       }
       return t;
@@ -75,9 +84,31 @@ export default function TeamsTab({ teams, onSaveTeams, isDarkMode }: TeamsTabPro
   const handleRemovePlayer = (teamId: string, playerName: string) => {
     const updatedTeams = teams.map((t) => {
       if (t.id === teamId) {
+        const updatedImages = { ...(t.playerImages || {}) };
+        delete updatedImages[playerName];
         return {
           ...t,
           players: t.players.filter((name) => name !== playerName),
+          playerImages: updatedImages,
+        };
+      }
+      return t;
+    });
+    onSaveTeams(updatedTeams);
+    if (editingPlayerName === playerName) {
+      setEditingPlayerName(null);
+    }
+  };
+
+  const handleSavePlayerImage = (teamId: string, playerName: string, imageUrl: string) => {
+    const updatedTeams = teams.map((t) => {
+      if (t.id === teamId) {
+        return {
+          ...t,
+          playerImages: {
+            ...(t.playerImages || {}),
+            [playerName]: imageUrl.trim(),
+          },
         };
       }
       return t;
@@ -221,25 +252,115 @@ export default function TeamsTab({ teams, onSaveTeams, isDarkMode }: TeamsTabPro
                   <p className="text-[11px] text-slate-400">Add some names above to get started scoring!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {selectedTeam.players.map((p, idx) => (
-                    <div
-                      key={p + idx}
-                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-neutral-800/30 rounded-xl border border-slate-100 dark:border-neutral-800/50 hover:border-slate-200 dark:hover:border-neutral-800 transition"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-xs font-bold text-slate-400">{idx + 1}</span>
-                        <p className="text-sm font-medium truncate">{p}</p>
-                      </div>
-                      <button
-                        id={`delete-player-${p}`}
-                        onClick={() => handleRemovePlayer(selectedTeam.id, p)}
-                        className="p-1 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-red-500 rounded-lg transition"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {selectedTeam.players.map((p, idx) => {
+                    const fallbackUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(p)}`;
+                    const avatarUrl = selectedTeam.playerImages?.[p] || fallbackUrl;
+                    const isEditing = editingPlayerName === p;
+
+                    return (
+                      <div
+                        key={p + idx}
+                        className={`flex flex-col p-3 bg-slate-50 dark:bg-neutral-800/20 rounded-xl border transition-all ${
+                          isEditing
+                            ? "border-emerald-500/50 bg-emerald-50/5 dark:bg-emerald-950/5 ring-1 ring-emerald-500/20"
+                            : "border-slate-100 dark:border-neutral-800/40 hover:border-slate-200 dark:hover:border-neutral-800"
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center justify-between min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-xs font-bold text-slate-400 font-mono w-4">{idx + 1}</span>
+                            <div className="relative w-10 h-10 rounded-full overflow-hidden bg-emerald-50 dark:bg-emerald-950/20 border border-slate-150 dark:border-neutral-800/80 flex items-center justify-center flex-shrink-0 shadow-xs">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={avatarUrl}
+                                alt={`${p}'s profile`}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate text-slate-800 dark:text-neutral-100">{p}</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isEditing) {
+                                    setEditingPlayerName(null);
+                                  } else {
+                                    setEditingPlayerName(p);
+                                    setCustomImageUrl(selectedTeam.playerImages?.[p] || "");
+                                  }
+                                }}
+                                className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium block text-left"
+                              >
+                                {isEditing ? "Cancel Edit" : "Change Avatar"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <button
+                            id={`delete-player-${p}`}
+                            onClick={() => handleRemovePlayer(selectedTeam.id, p)}
+                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-red-500 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {isEditing && (
+                          <div className="pt-3 mt-3 border-t border-slate-200/50 dark:border-neutral-800/60 space-y-2.5 text-xs animate-fade-in">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider block">Custom Image URL</label>
+                              <input
+                                type="text"
+                                placeholder="Paste an image address (e.g. https://...)"
+                                value={customImageUrl}
+                                onChange={(e) => setCustomImageUrl(e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider block">Or Choose Preset Placeholder Styles</label>
+                              <div className="flex flex-wrap gap-1">
+                                {[
+                                  { label: "Adventurer", url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(p)}` },
+                                  { label: "Fun Emoji", url: `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${encodeURIComponent(p)}` },
+                                  { label: "Pixel Art", url: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(p)}` },
+                                  { label: "Bottts", url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p)}` },
+                                  { label: "Initials", url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p)}` },
+                                ].map((preset) => (
+                                  <button
+                                    key={preset.label}
+                                    type="button"
+                                    onClick={() => setCustomImageUrl(preset.url)}
+                                    className={`px-2 py-1 text-[10px] font-semibold rounded-md border transition ${
+                                      customImageUrl === preset.url
+                                        ? "bg-emerald-50 border-emerald-300 text-emerald-600 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400"
+                                        : "bg-white dark:bg-neutral-800 border-slate-200 dark:border-neutral-700 hover:border-slate-300 dark:hover:border-neutral-600 text-slate-600 dark:text-neutral-300"
+                                    }`}
+                                  >
+                                    {preset.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleSavePlayerImage(selectedTeam.id, p, customImageUrl || fallbackUrl);
+                                setEditingPlayerName(null);
+                              }}
+                              className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-sm cursor-pointer"
+                            >
+                              Save Avatar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
