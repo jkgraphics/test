@@ -266,7 +266,11 @@ What was actually run on this build:
       MP4. The output is H.264 1920×1080 at 30 fps with 48 kHz stereo AAC.
 - [x] Placeholder audio levels measured with ffmpeg `volumedetect` (music
       around −20.6 dB mean and −6.1 dB peak before mix gain).
-- [x] Full-length render: see the final render note at the end of this file.
+- [x] Full-length render completed: `out/documentary.mp4` is 67 MB, H.264
+      1920×1080 at 30 fps, **8,412 frames, 280.4 s**, with AAC stereo audio
+      (mix around −24.7 dB mean, −4.0 dB peak). ffmpeg `blackdetect` flagged
+      only the intended fade-in from black (0–2 s) and the dark chapter title
+      cards. No blank frames or missing media.
 
 ---
 
