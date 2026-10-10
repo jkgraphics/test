@@ -1,0 +1,37 @@
+{
+  "name": "apollo-documentary",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cinematic documentary built with Remotion: 'The Eight Days' \u2014 the story of Apollo 11.",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "timeline": "node scripts/print-timeline.mjs",
+    "audio": "node scripts/generate-placeholder-audio.mjs",
+    "stills": "node scripts/render-stills.mjs",
+    "still": "remotion still src/index.ts Documentary out/still.png --frame=300",
+    "render": "remotion render src/index.ts Documentary out/documentary.mp4 --codec=h264 --crf=18 --audio-bitrate=320k",
+    "render:preview": "remotion render src/index.ts Documentary out/preview.mp4 --codec=h264 --crf=28 --scale=0.5",
+    "render:master": "remotion render src/index.ts Documentary out/documentary-master.mov --codec=prores --prores-profile=hq"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/playfair-display": "5.3.0",
+    "@remotion/cli": "4.0.534",
+    "@remotion/transitions": "4.0.534",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "remotion": "4.0.534"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.534",
+    "@remotion/renderer": "4.0.534",
+    "@types/react": "^19.2.0",
+    "esbuild": "0.28.1",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

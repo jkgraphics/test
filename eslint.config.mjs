@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default defineConfig([{
+export default defineConfig([
+  // The Remotion documentary is a separate project with its own tooling.
+  { ignores: ["documentary/**"] },
+  {
     extends: [...next],
-}]);
+  },
+]);
