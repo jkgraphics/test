@@ -220,3 +220,7 @@ table.data tr:hover td { background: #fffaf5; }
   .shell { display: block; }
   body { background: #fff; }
 }
+/* Two-pane layouts that stack on phones */
+.split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; }
+.split.side { grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+@media (max-width: 820px) { .split, .split.side { grid-template-columns: 1fr; } }

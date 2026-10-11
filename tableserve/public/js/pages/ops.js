@@ -178,7 +178,7 @@ export function FloorPage() {
         <label class="check"><input type="checkbox" checked=${mine} onChange=${(e) => setMine(e.target.checked)} /> My tables only</label>
         <button class=${`btn ${sound ? 'ok' : ''}`} onClick=${() => { if (enableSound()) { setSound(true); beep([660]); } }}>${sound ? '🔔 Alerts on' : '🔕 Enable sound'}</button>
       </div></div>
-    <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(260px,340px);align-items:start">
+    <div class="split side">
       <section>
         ${tables.error ? html`<${ErrorBox} error=${tables.error} onRetry=${() => tables.reload()} />` : null}
         ${tables.loading && !tables.data ? html`<${Loading} />` : !allTables.length ? html`<${Empty} icon="🪑" title="No tables">Add tables under Tables & QR.</${Empty}>` : html`
@@ -286,7 +286,7 @@ function TakeOrder({ table, onClose, onPlaced }) {
   }
   return html`<${Modal} title=${`Take order · Table ${table.number}`} onClose=${onClose} wide>
     ${menu.loading ? html`<${Loading} />` : menu.error ? html`<${ErrorBox} error=${menu.error} />` : html`
-    <div class="grid" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)">
+    <div class="split">
       <div><input type="search" placeholder="Search menu" value=${q} onInput=${(e) => setQ(e.target.value)} />
         <div class="col mt-s" style="max-height:55vh;overflow:auto">${menu.data.items.filter((i) => i.active && i.name.toLowerCase().includes(q.toLowerCase())).map((i) => html`
           <button class="btn" style="justify-content:space-between" disabled=${!i.in_stock} onClick=${() => setPick(i)}><span class="row"><${Diet} diet=${i.diet} />${i.name}</span><span>${i.in_stock ? money(i.price) + (i.options.length ? ' +' : '') : 'Out of stock'}</span></button>`)}</div></div>
@@ -367,7 +367,7 @@ function BillModal({ sessionId, onClose }) {
   const { bill: b, session: s } = st.data;
   const open = s.status === 'open';
   return html`<${Modal} title=${`Table ${s.table_number} · Bill ${b.bill_no ? `#${b.bill_no}` : '(not generated)'}`} onClose=${onClose} wide>
-    <div class="grid" style="grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:start">
+    <div class="split">
       <div>
         ${!b.lines.length ? html`<p class="muted">No accepted orders yet.</p>` : html`<table class="data"><thead><tr><th>Item</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead><tbody>
           ${b.lines.map((l) => html`<tr><td>${l.name}${l.options.length ? html`<div class="small muted">${l.options.map((o) => o.name).join(', ')}</div>` : null}<div class="small muted">#${l.order_no}</div></td><td class="right">${l.qty}</td><td class="right">${money(l.unit_price)}</td><td class="right">${money(l.line_total)}</td></tr>`)}
