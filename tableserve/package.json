@@ -1,0 +1,22 @@
+{
+  "name": "tableserve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TableServe – multi-tenant restaurant management and QR table ordering",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "seed": "node --disable-warning=ExperimentalWarning server/seed.js --reset",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "htm": "^3.1.1",
+    "preact": "^10.29.8",
+    "qrcode": "^1.5.4"
+  }
+}
